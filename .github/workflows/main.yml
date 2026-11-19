@@ -17,6 +17,21 @@ jobs:
 
       - name: Ensure Android project files exist
         run: flutter create --platforms=android .
+        
+      - name: Add contacts and location permissions
+        run: |
+          python3 -c '
+          p = open("android/app/src/main/AndroidManifest.xml").read()
+          perms = [
+              "<uses-permission android:name=\"android.permission.READ_CONTACTS\" />",
+              "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\" />",
+              "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\" />",
+          ]
+          missing = [x for x in perms if x not in p]
+          if missing:
+              p = p.replace("<application", "\n".join(missing) + "\n    <application", 1)
+              open("android/app/src/main/AndroidManifest.xml", "w").write(p)
+          '
 
       - name: Get dependencies
         run: flutter pub get

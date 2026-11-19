@@ -192,7 +192,7 @@ class _RadarEkranState extends State<RadarEkran>
                       label: const Text('Anlık Ölç'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white,
-                        side: BorderSide(color: vurguRengi.withValues(alpha: 0.7)),
+                        side: BorderSide(color: vurguRengi.withOpacity(0.7)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                     ),
@@ -222,7 +222,7 @@ class _RadarCizici extends CustomPainter {
     final yaricap = min(size.width, size.height) / 2;
 
     final halkaBoyasi = Paint()
-      ..color = vurguRengi.withValues(alpha: 0.28)
+      ..color = vurguRengi.withOpacity(0.28)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
@@ -231,7 +231,7 @@ class _RadarCizici extends CustomPainter {
     }
 
     final eksenBoyasi = Paint()
-      ..color = vurguRengi.withValues(alpha: 0.14)
+      ..color = vurguRengi.withOpacity(0.14)
       ..strokeWidth = 1.0;
 
     canvas.drawLine(
@@ -252,8 +252,8 @@ class _RadarCizici extends CustomPainter {
         startAngle: 0,
         endAngle: pi / 2.5,
         colors: [
-          vurguRengi.withValues(alpha: 0.0),
-          vurguRengi.withValues(alpha: 0.35),
+          vurguRengi.withOpacity(0.0),
+          vurguRengi.withOpacity(0.35),
         ],
         transform: GradientRotation(aci - pi / 2.5),
       ).createShader(yelpazeAlani);

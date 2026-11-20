@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yakınlık Radarı (5–1000 km)</title>
+  <style>
+    :root {
+      --bg: #070d12;
+      --card: #0e1a24;
+      --border: #193042;
+      --text: #e8f1f8;
+      --muted: #8aa3b8;
+      --accent: #10d48e;
+      --blue: #1ea7ff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 16px; max-width: 540px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    h1 { font-size: 1.25rem; font-weight: 700; }
+    .icon-btn {
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 1rem;
+    }
+    .status { font-size: 0.85rem; color: var(--accent); margin-bottom: 12px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .search-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    input[type="text"] {
+      flex: 1; background: var(--card); border: 1px solid var(--border); color: var(--text);
+      padding: 10px 14px; border-radius: 12px; font-size: 0.95rem; outline: none;
+    }
+    .upload-btn {
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      padding: 0 12px; border-radius: 12px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;
+    }
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .summary-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 12px;
+      cursor: pointer; text-align: left; color: var(--text);
+    }
+    .summary-card strong { display: block; color: var(--accent); font-size: 1rem; margin-bottom: 4px; }
+    .summary-card span { color: var(--muted); font-size: 0.85rem; }
+
+    .radar-wrap { display: flex; justify-content: center; margin: 14px 0; }
+    .radar {
+      width: 190px; height: 190px; border-radius: 50%;
+      border: 3px solid var(--accent);
+      background:
+        radial-gradient(circle, rgba(16,212,142,0.22) 0%, rgba(16,212,142,0.06) 35%, transparent 36%),
+        repeating-radial-gradient(circle, transparent 0, transparent 28px, rgba(30,167,255,0.45) 29px, rgba(30,167,255,0.45) 33px);
+      display: flex; align-items: center; justify-content: center; position: relative;
+      box-shadow: 0 0 25px rgba(16,212,142,0.15);
+    }
+    .ben-badge {
+      background: var(--accent); color: #04150e; font-weight: 800; font-size: 0.8rem;
+      padding: 6px 10px; border-radius: 999px;
+    }
+
+    .filters { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; }
+    .chip {
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      padding: 7px 14px; border-radius: 999px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;
+    }
+    .chip.active { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
+
+    .list { display: flex; flex-direction: column; gap: 10px; }
+    .item {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .left { display: flex; align-items: center; gap: 12px; }
+    .avatar {
+      width: 40px; height: 40px; border-radius: 50%; background: #143229; color: var(--accent);
+      display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;
+    }
+    .name { font-weight: 600; font-size: 0.95rem; }
+    .sub { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+    .dist { font-weight: 700; color: var(--accent); font-size: 0.95rem; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Yakınlık Radarı</h1>
+    <div>
+      <button class="icon-btn" id="gpsBtn" title="Konumu Yenile">◎</button>
+      <button class="icon-btn" id="reloadBtn" title="Mesafeleri Yeniden Dağıt">↻</button>
+    </div>
+  </header>
+
+  <div class="status">
+    <span id="statusText">GPS bekleniyor...</span>
+    <span id="coordText"></span>
+  </div>
+
+  <div class="search-row">
+    <input type="text" id="searchInput" placeholder="Rehberde harf veya isim ara..." />
+    <label class="upload-btn">
+      Dosya Yükle
+      <input type="file" id="fileInput" accept=".csv,.txt,.vcf" hidden />
+    </label>
+  </div>
+
+  <div class="summary-grid">
+    <button class="summary-card" onclick="setFilter('0-25')">
+      <strong>5 - 25 km</strong>
+      <span id="countNear">0 kişi</span>
+    </button>
+    <button class="summary-card" onclick="setFilter('25-100')">
+      <strong>25 - 100 km</strong>
+      <span id="countMid">0 kişi</span>
+    </button>
+  </div>
+
+  <div class="radar-wrap">
+    <div class="radar">
+      <span class="ben-badge">BEN</span>
+    </div>
+  </div>
+
+  <div class="filters" id="filterBar">
+    <button class="chip active" data-range="all">✓ Tümü</button>
+    <button class="chip" data-range="5-25">5-25 km</button>
+    <button class="chip" data-range="25-100">25-100 km</button>
+    <button class="chip" data-range="100-500">100-500 km</button>
+    <button class="chip" data-range="500-1000">500-1000 km</button>
+  </div>
+
+  <div class="list" id="contactList"></div>
+
+  <script>
+    const MIN_KM = 5;
+    const MAX_KM = 1000;
+    const STEP_KM = 5;
+
+    // Varsayılan konum (GPS alınamazsa kullanılır)
+    let myCoords = { lat: 40.6915, lon: 29.6155 };
+    let activeFilter = 'all';
+
+    const sampleNames = [
+      "Yüksel Dağ", "Hakan Arkadaşı", "Serkan Yalnızer", "Mustafa Şahin",
+      "Bilal Kardeşim", "Kerem Güzel Öğrenci", "Ayşe Demir", "Mehmet Kaya",
+      "Zeynep Yılmaz", "Emre Çelik", "Fatma Arslan", "Burak Koç",
+      "Deniz Aydın", "Elif Özdemir", "Caner Yıldız", "Merve Aksoy"
+    ];
+
+    let contacts = [];
+
+    // İki koordinat arası kuş uçuşu mesafe (km)
+    function haversineKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const toRad = d => (d * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    // Belirli mesafe (km) ve yönde hedef koordinat üretir
+    function destinationPoint(lat, lon, distanceKm, bearingDeg) {
+      const R = 6371;
+      const brng = (bearingDeg * Math.PI) / 180;
+      const lat1 = (lat * Math.PI) / 180;
+      const lon1 = (lon * Math.PI) / 180;
+      const d = distanceKm / R;
+
+      const lat2 = Math.asin(
+        Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng)
+      );
+      const lon2 =
+        lon1 +
+        Math.atan2(
+          Math.sin(brng) * Math.sin(d) * Math.cos(lat1),
+          Math.cos(d) - Math.sin(lat1) * Math.sin(lat2)
+        );
+
+      return {
+        lat: (lat2 * 180) / Math.PI,
+        lon: (lon2 * 180) / Math.PI
+      };
+    }
+
+    // Mesafeyi 5 km - 1000 km aralığında 5 km adımlara yuvarlar
+    function quantizeTo5Km(rawKm) {
+      const clamped = Math.max(MIN_KM, Math.min(MAX_KM, rawKm));
+      const stepped = Math.round(clamped / STEP_KM) * STEP_KM;
+      return Math.max(MIN_KM, Math.min(MAX_KM, stepped));
+    }
+
+    // Kişilere 5 km ile 1000 km arasında dağılan gerçekçi konumlar atar
+    function assignDistributedLocations(nameList) {
+      return nameList.map((name, idx) => {
+        // İlk kişiler yakın (5-50 km), sonraki kişiler kademeli olarak 1000 km'ye yayılır
+        const ratio = nameList.length > 1 ? idx / (nameList.length - 1) : 0;
+        const skewed = Math.pow(ratio, 1.35);
+        const targetKm = quantizeTo5Km(MIN_KM + skewed * (MAX_KM - MIN_KM));
+        const bearing = (idx * 137.5) % 360; // Altın açı ile eşit yön dağılımı
+        const pt = destinationPoint(myCoords.lat, myCoords.lon, targetKm, bearing);
+
+        return {
+          id: idx + 1,
+          name,
+          lat: pt.lat,
+          lon: pt.lon,
+          status: "Konum paylaşımı aktif"
+        };
+      });
+    }
+
+    function recalculateDistances() {
+      contacts = contacts.map(c => {
+        const rawKm = haversineKm(myCoords.lat, myCoords.lon, c.lat, c.lon);
+        const stepKm = quantizeTo5Km(rawKm);
+        return { ...c, distanceKm: stepKm };
+      });
+      render();
+    }
+
+    function setFilter(range) {
+      activeFilter = range;
+      document.querySelectorAll('.chip').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.range === range);
+      });
+      render();
+    }
+
+    function matchRange(km, range) {
+      if (range === 'all') return true;
+      const [min, max] = range.split('-').map(Number);
+      return km >= min && km <= max;
+    }
+
+    function render() {
+      const q = document.getElementById('searchInput').value.trim().toLocaleLowerCase('tr');
+
+      const nearCount = contacts.filter(c => c.distanceKm >= 5 && c.distanceKm <= 25).length;
+      const midCount = contacts.filter(c => c.distanceKm > 25 && c.distanceKm <= 100).length;
+      document.getElementById('countNear').textContent = `${nearCount} kişi`;
+      document.getElementById('countMid').textContent = `${midCount} kişi`;
+
+      const filtered = contacts
+        .filter(c => matchRange(c.distanceKm, activeFilter))
+        .filter(c => !q || c.name.toLocaleLowerCase('tr').includes(q))
+        .sort((a, b) => a.distanceKm - b.distanceKm);
+
+      const listEl = document.getElementById('contactList');
+      listEl.innerHTML = filtered.map(c => `
+        <div class="item">
+          <div class="left">
+            <div class="avatar">${c.name.trim().charAt(0).toLocaleUpperCase('tr')}</div>
+            <div>
+              <div class="name">${c.name}</div>
+              <div class="sub">${c.status} • ${c.distanceKm} km kademe</div>
+            </div>
+          </div>
+          <div class="dist">${c.distanceKm} km</div>
+        </div>
+      `).join('') || `<div class="item"><span class="sub">Bu aralıkta kişi bulunamadı.</span></div>`;
+    }
+
+    function fetchGPS() {
+      const statusEl = document.getElementById('statusText');
+      const coordEl = document.getElementById('coordText');
+      if (!navigator.geolocation) {
+        statusEl.textContent = "GPS desteklenmiyor • Varsayılan konum";
+        recalculateDistances();
+        return;
+      }
+      statusEl.textContent = "Konum alınıyor...";
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          myCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+          statusEl.textContent = `GPS aktif • ${contacts.length} kişi yüklendi`;
+          coordEl.textContent = `${myCoords.lat.toFixed(3)}, ${myCoords.lon.toFixed(3)}`;
+          contacts = assignDistributedLocations(contacts.map(c => c.name));
+          recalculateDistances();
+        },
+        () => {
+          statusEl.textContent = `İzin/sinyal yok • Varsayılan konum (${contacts.length} kişi)`;
+          coordEl.textContent = `${myCoords.lat.toFixed(3)}, ${myCoords.lon.toFixed(3)}`;
+          recalculateDistances();
+        },
+        { enableHighAccuracy: true, timeout: 7000 }
+      );
+    }
+
+    // İsteğe bağlı isim listesi (.txt, .csv veya .vcf) yükleme
+    document.getElementById('fileInput').addEventListener('change', async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      let names = [];
+      if (file.name.toLowerCase().endsWith('.vcf')) {
+        names = [...text.matchAll(/^FN:(.*)$/gm)].map(m => m[1].trim()).filter(Boolean);
+      } else {
+        names = text.split(/\r?\n/).map(line => line.split(',')[0].trim()).filter(Boolean);
+      }
+      if (names.length > 0) {
+        contacts = assignDistributedLocations(names);
+        document.getElementById('statusText').textContent = `Dosya yüklendi • ${contacts.length} kişi`;
+        recalculateDistances();
+      }
+    });
+
+    document.getElementById('searchInput').addEventListener('input', render);
+    document.getElementById('gpsBtn').addEventListener('click', fetchGPS);
+    document.getElementById('reloadBtn').addEventListener('click', () => {
+      contacts = assignDistributedLocations(contacts.map(c => c.name));
+      recalculateDistances();
+    });
+    document.querySelectorAll('.chip').forEach(btn => {
+      btn.addEventListener('click', () => setFilter(btn.dataset.range));
+    });
+
+    // Başlangıç
+    contacts = assignDistributedLocations(sampleNames);
+    recalculateDistances();
+    fetchGPS();
+  </script>
+</body>
+</html>

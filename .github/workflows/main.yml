@@ -9,34 +9,46 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: subosito/flutter-action@v2
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: "stable"
 
       - name: Ensure Android project files exist
         run: flutter create --platforms=android .
-        
-      - name: Add contacts and location permissions
+
+      - name: Add required Android permissions
         run: |
           python3 -c '
-          p = open("android/app/src/main/AndroidManifest.xml").read()
-          perms = [
-              "<uses-permission android:name=\"android.permission.READ_CONTACTS\" />",
-              "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\" />",
-              "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\" />",
+          manifest_path = "android/app/src/main/AndroidManifest.xml"
+          with open(manifest_path, "r", encoding="utf-8") as f:
+              content = f.read()
+
+          permissions = [
+              "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+              "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+              "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
+              "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>",
           ]
-          missing = [x for x in perms if x not in p]
+
+          missing = [p for p in permissions if p not in content]
           if missing:
-              p = p.replace("<application", "\n".join(missing) + "\n    <application", 1)
-              open("android/app/src/main/AndroidManifest.xml", "w").write(p)
+              content = content.replace(
+                  "<application",
+                  "\n    ".join(missing) + "\n    <application",
+                  1,
+              )
+              with open(manifest_path, "w", encoding="utf-8") as f:
+                  f.write(content)
           '
 
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Build APK
+      - name: Build release APK
         run: flutter build apk --release
 
       - name: Upload APK artifact

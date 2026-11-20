@@ -16,7 +16,7 @@ class YakinlikRadariApp extends StatelessWidget {
       title: 'Yakınlık Radarı',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF071118),
+        scaffoldBackgroundColor: const Color(0xFF070B12),
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFF00E5A8),
           secondary: Color(0xFF38BDF8),
@@ -32,6 +32,7 @@ class RehberKisiRadar {
   final String ad;
   final String telefon;
   final bool konumPaylasimiAcik;
+  final DateTime? sonKonumZamani;
   final double? mesafeKm;
   final double aciRadyan;
 
@@ -40,12 +41,28 @@ class RehberKisiRadar {
     required this.ad,
     required this.telefon,
     required this.konumPaylasimiAcik,
+    this.sonKonumZamani,
     required this.mesafeKm,
     required this.aciRadyan,
   });
 
+  bool get sonIkiGunIcindeAktifMi {
+    if (konumPaylasimiAcik) return true;
+    if (sonKonumZamani == null) return false;
+    return DateTime.now().difference(sonKonumZamani!).inHours <= 48;
+  }
+
+  String get aktiflikEtiketi {
+    if (konumPaylasimiAcik) return 'Konum açık';
+    if (sonKonumZamani == null) return 'Konum kapalı';
+    final saat = DateTime.now().difference(sonKonumZamani!).inHours;
+    if (saat < 24) return 'Bugün açıktı';
+    final gun = (saat / 24).floor().clamp(1, 2);
+    return '$gun gün önce açıktı';
+  }
+
   String get kademe {
-    if (!konumPaylasimiAcik || mesafeKm == null) return 'Konum Kapalı';
+    if (!sonIkiGunIcindeAktifMi || mesafeKm == null) return 'Kapalı';
     if (mesafeKm! <= 5.0) return '0-5 km';
     if (mesafeKm! <= 10.0) return '5-10 km';
     if (mesafeKm! <= 25.0) return '10-25 km';
@@ -95,12 +112,24 @@ class _RadarEkranState extends State<RadarEkran> {
         if (izin == LocationPermission.whileInUse ||
             izin == LocationPermission.always) {
           konum = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.medium,
+            desiredAccuracy: LocationAccuracy.high,
           );
         }
       }
     } catch (_) {
       konum = null;
+    }
+
+    if (konum == null) {
+      if (!mounted) return;
+      setState(() {
+        _benimKonumum = null;
+        _kisiler = [];
+        _seciliKisi = null;
+        _yukleniyor = false;
+        _durumMesaji = 'Konum kapalı — kişileri görmek için konumu açın';
+      });
+      return;
     }
 
     List<Contact> rehberKisileri = [];
@@ -117,40 +146,50 @@ class _RadarEkranState extends State<RadarEkran> {
     }
 
     final islenmis = <RehberKisiRadar>[];
+    final simdi = DateTime.now();
+
     for (var i = 0; i < rehberKisileri.length; i++) {
       final c = rehberKisileri[i];
       final isim = c.displayName.trim();
       if (isim.isEmpty) continue;
 
-      final tel = c.phones.isNotEmpty ? c.phones.first.number : '';
-      final konumAcik = konum != null && (i % 3 != 2);
+      final tel = c.phones.isNotEmpty ? c.phones.first.number.trim() : '';
 
-      double? mesafeKm;
-      if (konumAcik) {
-        final seed = isim.codeUnits.fold<int>(0, (acc, v) => acc + v) + i * 37;
-        final rng = Random(seed);
-        final hedefKm = 0.8 + rng.nextDouble() * 17.2;
-        final yon = rng.nextDouble() * 2 * pi;
+      // 0: şu an açık, 1: 1 gün önce açık, 2: 2 gün önce açık, 3: 3 gün önce (48 saati aştığı için gizlenir)
+      final mod = i % 4;
+      if (mod == 3) continue;
 
-        final dLat = (hedefKm * cos(yon)) / 111.0;
-        final dLon = (hedefKm * sin(yon)) /
-            (111.0 * cos(konum.latitude * pi / 180.0));
-        final metre = Geolocator.distanceBetween(
-          konum.latitude,
-          konum.longitude,
-          konum.latitude + dLat,
-          konum.longitude + dLon,
-        );
-        mesafeKm = double.parse((metre / 1000.0).toStringAsFixed(1));
-      }
+      final bool suAnAcik = mod == 0;
+      final DateTime? sonZaman = suAnAcik
+          ? simdi
+          : simdi.subtract(Duration(hours: mod == 1 ? 24 : 48));
 
+      final seed = isim.codeUnits.fold<int>(0, (acc, code) => acc + code);
+      final rng = Random(seed);
+      final hedefKm = 1.0 + rng.nextDouble() * 34.0;
+      final yon = rng.nextDouble() * 2 * pi;
+
+      final dLat = (hedefKm * cos(yon)) / 111.0;
+      final dLon =
+          (hedefKm * sin(yon)) / (111.0 * cos(konum.latitude * pi / 180.0));
+
+      final metre = Geolocator.distanceBetween(
+        konum.latitude,
+        konum.longitude,
+        konum.latitude + dLat,
+        konum.longitude + dLon,
+      );
+
+      final mesafeKm = double.parse((metre / 1000.0).toStringAsFixed(1));
       final aci = ((i * 1.15) % (2 * pi));
+
       islenmis.add(
         RehberKisiRadar(
           id: c.id,
           ad: isim,
           telefon: tel,
-          konumPaylasimiAcik: konumAcik,
+          konumPaylasimiAcik: suAnAcik,
+          sonKonumZamani: sonZaman,
           mesafeKm: mesafeKm,
           aciRadyan: aci,
         ),
@@ -163,43 +202,31 @@ class _RadarEkranState extends State<RadarEkran> {
       _kisiler = islenmis;
       _yukleniyor = false;
       if (!rehberIzniVar) {
-        _durumMesaji = 'Rehber izni verilmedi. Ayarlardan izin verebilirsin.';
-      } else if (konum == null) {
-        _durumMesaji = 'GPS konumu alınamadı. Konum servisini kontrol et.';
+        _durumMesaji = 'Rehber izni verilmedi';
       } else {
-        _durumMesaji = 'GPS aktif • ${islenmis.length} rehber kişisi yüklendi';
+        _durumMesaji = 'GPS aktif • ${islenmis.length} kişi';
       }
     });
   }
 
   List<RehberKisiRadar> get _filtrelenmisKisiler {
+    if (_benimKonumum == null) return [];
     final sorgu = _aramaMetni.trim().toLowerCase();
+
     return _kisiler.where((k) {
-      if (_sadeceKonumuAcik && (!k.konumPaylasimiAcik || k.mesafeKm == null)) {
-        return false;
-      }
-      if (_seciliKademe != 'Tümü' && k.kademe != _seciliKademe) {
-        return false;
-      }
-      if (sorgu.isNotEmpty && !k.ad.toLowerCase().contains(sorgu)) {
-        return false;
-      }
+      if (!k.sonIkiGunIcindeAktifMi || k.mesafeKm == null) return false;
+      if (_sadeceKonumuAcik && !k.konumPaylasimiAcik) return false;
+      if (_seciliKademe != 'Tümü' && k.kademe != _seciliKademe) return false;
+      if (sorgu.isNotEmpty && !k.ad.toLowerCase().contains(sorgu)) return false;
       return true;
     }).toList()
-      ..sort((a, b) {
-        if (a.mesafeKm == null && b.mesafeKm == null) {
-          return a.ad.compareTo(b.ad);
-        }
-        if (a.mesafeKm == null) return 1;
-        if (b.mesafeKm == null) return -1;
-        return a.mesafeKm!.compareTo(b.mesafeKm!);
-      });
+      ..sort((a, b) => a.mesafeKm!.compareTo(b.mesafeKm!));
   }
 
   int _kademeSayisi(String kademe) {
+    if (_benimKonumum == null) return 0;
     return _kisiler
-        .where((k) =>
-            k.konumPaylasimiAcik && k.mesafeKm != null && k.kademe == kademe)
+        .where((k) => k.sonIkiGunIcindeAktifMi && k.kademe == kademe)
         .length;
   }
 
@@ -207,12 +234,12 @@ class _RadarEkranState extends State<RadarEkran> {
     setState(() {
       _seciliKisi = kisi;
     });
-    final konumAcik = kisi.konumPaylasimiAcik && kisi.mesafeKm != null;
+
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF0E1D28),
+      backgroundColor: const Color(0xFF0E1D2B),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return Padding(
@@ -223,22 +250,19 @@ class _RadarEkranState extends State<RadarEkran> {
             children: [
               Text(
                 kisi.ad,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               if (kisi.telefon.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
                   kisi.telefon,
-                  style: const TextStyle(color: Colors.white60, fontSize: 13),
+                  style: const TextStyle(color: Colors.white70),
                 ),
               ],
               const SizedBox(height: 16),
-              if (konumAcik) ...[
+              if (kisi.sonIkiGunIcindeAktifMi && kisi.mesafeKm != null) ...[
                 Text(
-                  'Yaklaşık Uzaklık: ~${kisi.mesafeKm!.toStringAsFixed(1)} km',
+                  'Yaklaşık Uzaklık: ${kisi.mesafeKm!.toStringAsFixed(0)} km',
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
@@ -247,7 +271,7 @@ class _RadarEkranState extends State<RadarEkran> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Yakınlık Kademesi: ${kisi.kademe}',
+                  'Durum: ${kisi.aktiflikEtiketi} • Kademe: ${kisi.kademe}',
                   style: const TextStyle(
                     fontSize: 15,
                     color: Color(0xFF38BDF8),
@@ -255,10 +279,10 @@ class _RadarEkranState extends State<RadarEkran> {
                 ),
               ] else ...[
                 const Text(
-                  'Konum bilgisi kapalı veya paylaşıma izin verilmemiş.',
+                  'Konum bilgisi kapalı veya son 2 gün içinde aktif değil',
                   style: TextStyle(
                     fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: Color(0xFFFF5A5F),
                   ),
                 ),
@@ -286,7 +310,7 @@ class _RadarEkranState extends State<RadarEkran> {
 
   @override
   Widget build(BuildContext context) {
-    final kademeler = ['Tümü', '0-5 km', '5-10 km', '10-25 km'];
+    final kademeler = ['Tümü', '0-5 km', '5-10 km', '10-25 km', '25+ km'];
     final gorunenKisiler = _filtrelenmisKisiler;
 
     return Scaffold(
@@ -299,8 +323,12 @@ class _RadarEkranState extends State<RadarEkran> {
           IconButton(
             tooltip: 'Sadece Konumu Açık Olanlar',
             icon: Icon(
-              _sadeceKonumuAcik ? Icons.location_on : Icons.location_searching,
-              color: const Color(0xFF00E5A8),
+              _sadeceKonumuAcik
+                  ? Icons.location_on
+                  : Icons.location_searching,
+              color: _sadeceKonumuAcik
+                  ? const Color(0xFF00E5A8)
+                  : Colors.white70,
             ),
             onPressed: () {
               setState(() {
@@ -317,17 +345,12 @@ class _RadarEkranState extends State<RadarEkran> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           child: Column(
             children: [
               Text(
                 _durumMesaji,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _benimKonumum != null
-                      ? const Color(0xFF00E5A8)
-                      : Colors.white70,
-                ),
+                style: const TextStyle(fontSize: 12, color: Colors.white60),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -346,9 +369,9 @@ class _RadarEkranState extends State<RadarEkran> {
                         )
                       : null,
                   filled: true,
-                  fillColor: const Color(0xFF0E1D28),
+                  fillColor: const Color(0xFF0E1D2B),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -425,62 +448,65 @@ class _RadarEkranState extends State<RadarEkran> {
               Expanded(
                 child: _yukleniyor
                     ? const Center(child: CircularProgressIndicator())
-                    : gorunenKisiler.isEmpty
+                    : _benimKonumum == null
                         ? const Center(
                             child: Text(
-                              'Eşleşen kişi bulunamadı.',
-                              style: TextStyle(color: Colors.white60),
+                              'Konum kapalı olduğu için kişiler görünmüyor.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.white70),
                             ),
                           )
-                        : ListView.builder(
-                            itemCount: gorunenKisiler.length,
-                            itemBuilder: (context, index) {
-                              final kisi = gorunenKisiler[index];
-                              final konumAcik = kisi.konumPaylasimiAcik &&
-                                  kisi.mesafeKm != null;
-                              return Card(
-                                color: const Color(0xFF0E1D28),
-                                margin: const EdgeInsets.only(bottom: 8),
-                                child: ListTile(
-                                  onTap: () => _kisiDetayGoster(kisi),
-                                  leading: CircleAvatar(
-                                    backgroundColor: konumAcik
-                                        ? const Color(0xFF00E5A8)
-                                            .withOpacity(0.15)
-                                        : Colors.white12,
-                                    child: Text(
-                                      kisi.ad.isNotEmpty
-                                          ? kisi.ad[0].toUpperCase()
-                                          : '?',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: konumAcik
+                        : gorunenKisiler.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'Eşleşen kişi bulunamadı.',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: gorunenKisiler.length,
+                                itemBuilder: (context, index) {
+                                  final kisi = gorunenKisiler[index];
+                                  final aktif = kisi.konumPaylasimiAcik;
+
+                                  return Card(
+                                    color: const Color(0xFF0E1D2B),
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    child: ListTile(
+                                      onTap: () => _kisiDetayGoster(kisi),
+                                      leading: CircleAvatar(
+                                        backgroundColor: aktif
                                             ? const Color(0xFF00E5A8)
-                                            : Colors.white54,
+                                                .withOpacity(0.18)
+                                            : const Color(0xFF38BDF8)
+                                                .withOpacity(0.18),
+                                        child: Text(
+                                          kisi.ad.isNotEmpty
+                                              ? kisi.ad[0].toUpperCase()
+                                              : '?',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: aktif
+                                                ? const Color(0xFF00E5A8)
+                                                : const Color(0xFF38BDF8),
+                                          ),
+                                        ),
+                                      ),
+                                      title: Text(kisi.ad),
+                                      subtitle: Text(kisi.aktiflikEtiketi),
+                                      trailing: Text(
+                                        '${kisi.mesafeKm!.toStringAsFixed(0)} km',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: aktif
+                                              ? const Color(0xFF00E5A8)
+                                              : const Color(0xFF38BDF8),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  title: Text(kisi.ad),
-                                  subtitle: Text(
-                                    konumAcik
-                                        ? 'Konum açık • ${kisi.kademe}'
-                                        : 'Konum bilgisi kapalı',
-                                  ),
-                                  trailing: Text(
-                                    konumAcik
-                                        ? '~${kisi.mesafeKm!.toStringAsFixed(1)} km'
-                                        : 'Kapalı',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: konumAcik
-                                          ? const Color(0xFF38BDF8)
-                                          : Colors.white54,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                                  );
+                                },
+                              ),
               ),
             ],
           ),
@@ -513,7 +539,7 @@ class _KademeKarti extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: aktif ? renk.withOpacity(0.18) : const Color(0xFF0E1D28),
+          color: aktif ? renk.withOpacity(0.18) : const Color(0xFF0E1D2B),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: aktif ? renk : Colors.white12,
@@ -555,10 +581,10 @@ class _KademeRadarCizici extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final merkez = Offset(size.width / 2, size.height / 2);
-    final maxYaricap = min(size.width, size.height) / 2;
+    final maxYaricap = min(size.width, size.height) / 2 - 8;
 
     final halkaBoyasi = Paint()
-      ..color = const Color(0xFF00E5A8).withOpacity(0.30)
+      ..color = const Color(0xFF00E5A8).withOpacity(0.25)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.4;
 
@@ -567,19 +593,26 @@ class _KademeRadarCizici extends CustomPainter {
     }
 
     for (final kisi in kisiler) {
-      if (!kisi.konumPaylasimiAcik || kisi.mesafeKm == null) continue;
+      if (!kisi.sonIkiGunIcindeAktifMi || kisi.mesafeKm == null) continue;
       final km = kisi.mesafeKm!;
-      final oran = km <= 5 ? 0.22 : (km <= 10 ? 0.52 : 0.84);
+      final oran = km <= 5
+          ? 0.22
+          : (km <= 10 ? 0.45 : (km <= 25 ? 0.72 : 0.92));
+
       final nokta = Offset(
         merkez.dx + cos(kisi.aciRadyan) * maxYaricap * oran,
         merkez.dy + sin(kisi.aciRadyan) * maxYaricap * oran,
       );
+
       final seciliMi = seciliKisi?.id == kisi.id;
       final noktaBoyasi = Paint()
         ..color = seciliMi
             ? const Color(0xFFFF5A5F)
-            : (km <= 5 ? const Color(0xFF00E5A8) : const Color(0xFF38BDF8));
-      canvas.drawCircle(nokta, seciliMi ? 7.5 : 5.5, noktaBoyasi);
+            : (kisi.konumPaylasimiAcik
+                ? const Color(0xFF00E5A8)
+                : const Color(0xFF38BDF8));
+
+      canvas.drawCircle(nokta, seciliMi ? 7.5 : 5.0, noktaBoyasi);
     }
   }
 

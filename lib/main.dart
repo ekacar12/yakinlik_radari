@@ -1,467 +1,370 @@
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#b91c1c" />
-  <title>Tansiyon & Nabız Ölçer</title>
-  <style>
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #f6f7f9;
-      color: #111827;
-      padding: 16px;
-    }
-    .app {
-      max-width: 480px;
-      margin: 0 auto;
-    }
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 14px;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .brand-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: #e11d48;
-      color: #fff;
-      display: grid;
-      place-items: center;
-      font-weight: 800;
-      font-size: 18px;
-    }
-    .title {
-      font-size: 20px;
-      font-weight: 800;
-      margin: 0;
-    }
-    .badge {
-      background: #dcfce7;
-      color: #15803d;
-      font-size: 12px;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 999px;
-    }
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-    .card {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 16px;
-      padding: 14px 8px;
-      text-align: center;
-      cursor: pointer;
-    }
-    .card-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #6b7280;
-      letter-spacing: 0.4px;
-    }
-    .card-val {
-      font-size: 30px;
-      font-weight: 800;
-      margin: 6px 0 2px;
-      line-height: 1.1;
-    }
-    .val-buyuk { color: #111827; }
-    .val-kucuk { color: #1d4ed8; }
-    .val-nabiz { color: #dc2626; }
-    .card-unit {
-      font-size: 11px;
-      color: #9ca3af;
-    }
-    .status-box {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 14px;
-      padding: 12px 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 14px;
-      font-size: 14px;
-    }
-    .status-label { color: #6b7280; }
-    .status-val { font-weight: 700; color: #15803d; }
-    .btn {
-      width: 100%;
-      border: 0;
-      border-radius: 14px;
-      padding: 15px 16px;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-    .btn-cam {
-      background: #be123c;
-      color: #fff;
-      margin-bottom: 8px;
-    }
-    .demo-link {
-      display: block;
-      text-align: center;
-      color: #4b5563;
-      font-size: 13px;
-      text-decoration: underline;
-      margin-bottom: 12px;
-      cursor: pointer;
-      background: none;
-      border: 0;
-      width: 100%;
-    }
-    .btn-save {
-      background: #111827;
-      color: #fff;
-      margin-bottom: 16px;
-    }
-    .history-box {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 16px;
-      padding: 14px;
-      margin-bottom: 12px;
-    }
-    .history-head {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      font-weight: 700;
-      color: #6b7280;
-      margin-bottom: 10px;
-    }
-    .empty {
-      text-align: center;
-      color: #9ca3af;
-      padding: 20px 0;
-      font-size: 14px;
-    }
-    .item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 0;
-      border-top: 1px solid #f3f4f6;
-      font-size: 14px;
-    }
-    .item-main { font-weight: 700; }
-    .item-date { font-size: 12px; color: #6b7280; }
-    .del-btn {
-      background: #fee2e2;
-      color: #b91c1c;
-      border: 0;
-      border-radius: 8px;
-      padding: 6px 10px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .note {
-      text-align: center;
-      font-size: 11px;
-      color: #9ca3af;
-      line-height: 1.45;
-    }
-    .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.85);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      z-index: 50;
-    }
-    .modal.open { display: flex; }
-    .modal-card {
-      width: 100%;
-      max-width: 420px;
-      background: #141414;
-      color: #fff;
-      border-radius: 20px;
-      padding: 18px;
-      text-align: center;
-    }
-    video, canvas {
-      width: 100%;
-      max-height: 210px;
-      border-radius: 14px;
-      background: #000;
-      object-fit: cover;
-      margin: 10px 0;
-    }
-    .modal-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 12px;
-    }
-    .m-btn {
-      padding: 12px;
-      border-radius: 12px;
-      border: 0;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .m-cancel { background: #374151; color: #fff; }
-    .m-done { background: #16a34a; color: #fff; }
-  </style>
-</head>
-<body>
-  <div class="app">
-    <div class="header">
-      <div class="brand">
-        <div class="brand-icon">♥</div>
-        <h1 class="title">Tansiyon &amp; Nabız Ölçer</h1>
-      </div>
-      <span id="topBadge" class="badge">Normal</span>
-    </div>
+import 'dart:async';
+import 'dart:math';
+import 'package:flutter/material.dart';
 
-    <div class="cards">
-      <div class="card" onclick="degerDuzenle('buyuk', 'Büyük Tansiyon')">
-        <div class="card-label">BÜYÜK</div>
-        <div id="valBuyuk" class="card-val val-buyuk">114</div>
-        <div class="card-unit">mmHg</div>
-      </div>
-      <div class="card" onclick="degerDuzenle('kucuk', 'Küçük Tansiyon')">
-        <div class="card-label">KÜÇÜK</div>
-        <div id="valKucuk" class="card-val val-kucuk">74</div>
-        <div class="card-unit">mmHg</div>
-      </div>
-      <div class="card" onclick="degerDuzenle('nabiz', 'Nabız')">
-        <div class="card-label">NABIZ</div>
-        <div id="valNabiz" class="card-val val-nabiz">75</div>
-        <div class="card-unit">BPM</div>
-      </div>
-    </div>
+void main() {
+  runApp(const TuglaKiriciApp());
+}
 
-    <div class="status-box">
-      <span class="status-label">Durum:</span>
-      <span id="statusText" class="status-val">Normal Tansiyon Seviyesi</span>
-    </div>
+class TuglaKiriciApp extends StatelessWidget {
+  const TuglaKiriciApp({super.key});
 
-    <button class="btn btn-cam" onclick="kameraAc()">📷 Kamera Aç ve Ölç</button>
-    <button class="demo-link" onclick="demoOlcum()">Kamerasız Test (Demo Ölçüm)</button>
-    <button class="btn btn-save" onclick="kaydet()">✓ Kaydet</button>
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Tuğla Kırıcı',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF0A0F1E),
+      ),
+      home: const OyunEkrani(),
+    );
+  }
+}
 
-    <div class="history-box">
-      <div class="history-head">
-        <span>GEÇMİŞ ÖLÇÜMLER</span>
-        <span id="countText">0 kayıt</span>
-      </div>
-      <div id="historyList">
-        <div class="empty">Henüz kayıtlı ölçüm yok.</div>
-      </div>
-    </div>
+class Tugla {
+  Rect rect;
+  int hp;
+  int maxHp;
+  Tugla({required this.rect, required this.hp}) : maxHp = hp;
+}
 
-    <div class="note">
-      Kamera ölçümü parmak ucundan optik nabız (PPG) analiziyle tahmini değer üretir; tıbbi tanı için manşonlu tansiyon aleti kullanınız.
-    </div>
-  </div>
+class OyunEkrani extends StatefulWidget {
+  const OyunEkrani({super.key});
 
-  <div id="camModal" class="modal">
-    <div class="modal-card">
-      <div style="font-weight:700;font-size:16px;">Parmak Sensörü Ölçümü</div>
-      <div id="camHint" style="font-size:13px;color:#d1d5db;margin-top:4px;">
-        Parmağınızı arka kamera ve flaşın üzerine hafifçe yerleştirin.
-      </div>
-      <video id="video" playsinline autoplay muted></video>
-      <canvas id="waveCanvas" width="360" height="80"></canvas>
-      <div id="camStats" style="font-weight:700;font-size:15px;">Kalan Süre: 10 sn • Nabız: 74 BPM</div>
-      <div class="modal-actions">
-        <button class="m-btn m-cancel" onclick="kameraKapat(false)">İptal</button>
-        <button class="m-btn m-done" onclick="kameraKapat(true)">Şimdi Bitir</button>
-      </div>
-    </div>
-  </div>
+  @override
+  State<OyunEkrani> createState() => _OyunEkraniState();
+}
 
-  <script>
-    const state = {
-      buyuk: 114,
-      kucuk: 74,
-      nabiz: 75,
-      kayitlar: JSON.parse(localStorage.getItem('tansiyon_kayitlar_v1') || '[]')
-    };
+class _OyunEkraniState extends State<OyunEkrani> {
+  Timer? _timer;
+  final Random _rng = Random();
 
-    let stream = null;
-    let rafId = null;
-    let timerId = null;
-    let kalan = 10;
-    let canliNabiz = 74;
-    let wavePhase = 0;
+  double _alanGenislik = 360;
+  double _alanYukseklik = 540;
 
-    function durumHesapla(buyuk, kucuk) {
-      if (buyuk < 90 || kucuk < 60) {
-        return { badge: 'Düşük', text: 'Düşük Tansiyon Seviyesi', color: '#1d4ed8', bg: '#dbeafe' };
-      }
-      if (buyuk < 120 && kucuk < 80) {
-        return { badge: 'Normal', text: 'Normal Tansiyon Seviyesi', color: '#15803d', bg: '#dcfce7' };
-      }
-      if (buyuk < 140 && kucuk < 90) {
-        return { badge: 'Sınırda', text: 'Yüksek Normal / Sınırda', color: '#b45309', bg: '#fef3c7' };
-      }
-      return { badge: 'Yüksek', text: 'Yüksek Tansiyon (Hipertansiyon)', color: '#b91c1c', bg: '#fee2e2' };
+  double _raketX = 135;
+  double _raketGenislik = 90;
+  final double _raketYukseklik = 14;
+  double _raketY = 500;
+
+  double _topX = 180;
+  double _topY = 480;
+  double _topHizX = 3.6;
+  double _topHizY = -4.2;
+  final double _topYaricap = 9;
+
+  int _skor = 0;
+  int _can = 3;
+  int _seviye = 1;
+  bool _calisiyor = false;
+  bool _oyunBitti = false;
+  List<Tugla> _tuglalar = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _seviyeHazirla(1, resetSkor: true);
+  }
+
+  void _seviyeHazirla(int seviye, {bool resetSkor = false}) {
+    _timer?.cancel();
+    _calisiyor = false;
+    _oyunBitti = false;
+    _seviye = seviye;
+    if (resetSkor) {
+      _skor = 0;
+      _can = 3;
     }
+    _raketGenislik = 90;
+    _raketX = (_alanGenislik - _raketGenislik) / 2;
+    _raketY = _alanYukseklik - 36;
+    _topuRastgeleBaslat();
 
-    function guncelleEkran() {
-      document.getElementById('valBuyuk').textContent = state.buyuk;
-      document.getElementById('valKucuk').textContent = state.kucuk;
-      document.getElementById('valNabiz').textContent = state.nabiz;
+    _tuglalar.clear();
+    const satirSayisi = 5;
+    const sutunSayisi = 6;
+    const bosluk = 6.0;
+    final tuglaGenislik =
+        (_alanGenislik - (sutunSayisi + 1) * bosluk) / sutunSayisi;
+    const tuglaYukseklik = 22.0;
 
-      const d = durumHesapla(state.buyuk, state.kucuk);
-      const badgeEl = document.getElementById('topBadge');
-      badgeEl.textContent = d.badge;
-      badgeEl.style.color = d.color;
-      badgeEl.style.background = d.bg;
-
-      const statusEl = document.getElementById('statusText');
-      statusEl.textContent = d.text;
-      statusEl.style.color = d.color;
-
-      document.getElementById('countText').textContent = `${state.kayitlar.length} kayıt`;
-      const listEl = document.getElementById('historyList');
-      if (!state.kayitlar.length) {
-        listEl.innerHTML = '<div class="empty">Henüz kayıtlı ölçüm yok.</div>';
-        return;
-      }
-
-      listEl.innerHTML = state.kayitlar.map((k, idx) => `
-        <div class="item">
-          <div>
-            <div class="item-main">${k.buyuk}/${k.kucuk} mmHg • ${k.nabiz} BPM</div>
-            <div class="item-date">${k.tarih}</div>
-          </div>
-          <button class="del-btn" onclick="sil(${idx})">Sil</button>
-        </div>
-      `).join('');
-    }
-
-    function degerDuzenle(key, baslik) {
-      const giris = prompt(`${baslik} değerini girin:`, state[key]);
-      if (giris === null) return;
-      const sayi = parseInt(giris.trim(), 10);
-      if (!Number.isNaN(sayi) && sayi > 20 && sayi < 300) {
-        state[key] = sayi;
-        guncelleEkran();
+    for (int r = 0; r < satirSayisi; r++) {
+      for (int c = 0; c < sutunSayisi; c++) {
+        final hp = min(3, 1 + ((r + seviye - 1) ~/ 2));
+        final left = bosluk + c * (tuglaGenislik + bosluk);
+        final top = 48.0 + r * (tuglaYukseklik + bosluk);
+        _tuglalar.add(Tugla(
+          rect: Rect.fromLTWH(left, top, tuglaGenislik, tuglaYukseklik),
+          hp: hp,
+        ));
       }
     }
+    setState(() {});
+  }
 
-    function demoOlcum() {
-      state.nabiz = 68 + Math.floor(Math.random() * 16);
-      state.buyuk = 110 + Math.floor(Math.random() * 18);
-      state.kucuk = 68 + Math.floor(Math.random() * 14);
-      guncelleEkran();
+  void _topuRastgeleBaslat() {
+    _topX = _raketX + _raketGenislik / 2;
+    _topY = _raketY - _topYaricap - 2;
+    final yon = _rng.nextBool() ? 1.0 : -1.0;
+    final hizCarpani = 1.0 + (_seviye - 1) * 0.08;
+    _topHizX = yon * 3.5 * hizCarpani;
+    _topHizY = -4.2 * hizCarpani;
+  }
+
+  void _oyunuBaslatVeyaDuraklat() {
+    if (_oyunBitti) {
+      _seviyeHazirla(1, resetSkor: true);
+      _oyunuBaslatVeyaDuraklat();
+      return;
+    }
+    if (_calisiyor) {
+      _timer?.cancel();
+      setState(() => _calisiyor = false);
+      return;
+    }
+    setState(() => _calisiyor = true);
+    _timer = Timer.periodic(const Duration(milliseconds: 16), (_) => _adim());
+  }
+
+  void _adim() {
+    if (!_calisiyor || _oyunBitti) return;
+
+    _topX += _topHizX;
+    _topY += _topHizY;
+
+    if (_topX - _topYaricap <= 0) {
+      _topX = _topYaricap;
+      _topHizX = _topHizX.abs();
+    } else if (_topX + _topYaricap >= _alanGenislik) {
+      _topX = _alanGenislik - _topYaricap;
+      _topHizX = -_topHizX.abs();
     }
 
-    function kaydet() {
-      const simdi = new Date();
-      const tarih = simdi.toLocaleString('tr-TR', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      });
-      state.kayitlar.unshift({
-        buyuk: state.buyuk,
-        kucuk: state.kucuk,
-        nabiz: state.nabiz,
-        tarih
-      });
-      localStorage.setItem('tansiyon_kayitlar_v1', JSON.stringify(state.kayitlar));
-      guncelleEkran();
+    if (_topY - _topYaricap <= 0) {
+      _topY = _topYaricap;
+      _topHizY = _topHizY.abs();
     }
 
-    function sil(idx) {
-      state.kayitlar.splice(idx, 1);
-      localStorage.setItem('tansiyon_kayitlar_v1', JSON.stringify(state.kayitlar));
-      guncelleEkran();
+    final raketRect =
+        Rect.fromLTWH(_raketX, _raketY, _raketGenislik, _raketYukseklik);
+    final topRect = Rect.fromCircle(center: Offset(_topX, _topY), radius: _topYaricap);
+
+    if (_topHizY > 0 && topRect.overlaps(raketRect)) {
+      final merkezFarki =
+          (_topX - (_raketX + _raketGenislik / 2)) / (_raketGenislik / 2);
+      _topHizX = merkezFarki.clamp(-1.0, 1.0) * 5.2;
+      _topHizY = -_topHizY.abs();
+      _topY = _raketY - _topYaricap - 1;
     }
 
-    function dalgaCiz() {
-      const canvas = document.getElementById('waveCanvas');
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      for (let x = 0; x < canvas.width; x++) {
-        const t = (x * 0.06) + wavePhase;
-        const y = canvas.height / 2 - Math.sin(t) * 18 - Math.sin(t * 2) * 7;
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-      wavePhase += 0.22;
-      rafId = requestAnimationFrame(dalgaCiz);
-    }
-
-    async function kameraAc() {
-      kalan = 10;
-      canliNabiz = 72 + Math.floor(Math.random() * 12);
-      document.getElementById('camStats').textContent = `Kalan Süre: ${kalan} sn • Nabız: ${canliNabiz} BPM`;
-      document.getElementById('camModal').classList.add('open');
-      dalgaCiz();
-
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
-          audio: false
-        });
-        const videoEl = document.getElementById('video');
-        videoEl.srcObject = stream;
-        const track = stream.getVideoTracks()[0];
-        const caps = track.getCapabilities ? track.getCapabilities() : {};
-        if (caps.torch) {
-          await track.applyConstraints({ advanced: [{ torch: true }] }).catch(() => {});
+    for (int i = _tuglalar.length - 1; i >= 0; i--) {
+      final tugla = _tuglalar[i];
+      if (topRect.overlaps(tugla.rect)) {
+        tugla.hp -= 1;
+        _skor += 10;
+        if (tugla.hp <= 0) {
+          _tuglalar.removeAt(i);
+          _skor += 15;
         }
-      } catch (err) {
-        document.getElementById('camHint').textContent = 'Kamera açılamadı; süre sonunda tahmini ölçüm üretilecek.';
-      }
-
-      timerId = setInterval(() => {
-        kalan -= 1;
-        canliNabiz = 68 + Math.floor(Math.random() * 16);
-        document.getElementById('camStats').textContent = `Kalan Süre: ${Math.max(0, kalan)} sn • Nabız: ${canliNabiz} BPM`;
-        if (kalan <= 0) {
-          kameraKapat(true);
-        }
-      }, 1000);
-    }
-
-    function kameraKapat(sonucuAktar) {
-      clearInterval(timerId);
-      cancelAnimationFrame(rafId);
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-        stream = null;
-      }
-      document.getElementById('camModal').classList.remove('open');
-      if (sonucuAktar) {
-        state.nabiz = canliNabiz;
-        state.buyuk = 110 + Math.floor(Math.random() * 18);
-        state.kucuk = 68 + Math.floor(Math.random() * 14);
-        guncelleEkran();
+        _topHizY = -_topHizY;
+        break;
       }
     }
 
-    guncelleEkran();
-  </script>
-</body>
-</html>
+    if (_tuglalar.isEmpty) {
+      _seviyeHazirla(_seviye + 1);
+      return;
+    }
+
+    if (_topY - _topYaricap > _alanYukseklik) {
+      _can -= 1;
+      if (_can <= 0) {
+        _can = 0;
+        _oyunBitti = true;
+        _calisiyor = false;
+        _timer?.cancel();
+      } else {
+        _calisiyor = false;
+        _timer?.cancel();
+        _topuRastgeleBaslat();
+      }
+    }
+
+    setState(() {});
+  }
+
+  void _raketiHareketEttir(double deltaX) {
+    setState(() {
+      _raketX = (_raketX + deltaX).clamp(0.0, _alanGenislik - _raketGenislik);
+      if (!_calisiyor && !_oyunBitti) {
+        _topX = _raketX + _raketGenislik / 2;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Color _tuglaRengi(int hp) {
+    switch (hp) {
+      case 3:
+        return const Color(0xFFEF4444);
+      case 2:
+        return const Color(0xFFF59E0B);
+      default:
+        return const Color(0xFF38BDF8);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Tuğla Kırıcı · Seviye $_seviye'),
+        backgroundColor: const Color(0xFF111827),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => _seviyeHazirla(1, resetSkor: true),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Skor: $_skor',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('Can: $_can',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
+                ElevatedButton(
+                  onPressed: _oyunuBaslatVeyaDuraklat,
+                  child: Text(_oyunBitti
+                      ? 'Yeniden'
+                      : (_calisiyor ? 'Duraklat' : 'Başlat')),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                _alanGenislik = constraints.maxWidth;
+                _alanYukseklik = constraints.maxHeight;
+                _raketY = _alanYukseklik - 36;
+                _raketX =
+                    _raketX.clamp(0.0, max(0.0, _alanGenislik - _raketGenislik));
+                if (!_calisiyor && !_oyunBitti) {
+                  _topX = _raketX + _raketGenislik / 2;
+                  _topY = _raketY - _topYaricap - 2;
+                }
+
+                return GestureDetector(
+                  onHorizontalDragUpdate: (details) =>
+                      _raketiHareketEttir(details.delta.dx),
+                  onTap: () {
+                    if (!_calisiyor) _oyunuBaslatVeyaDuraklat();
+                  },
+                  child: Container(
+                    width: _alanGenislik,
+                    height: _alanYukseklik,
+                    color: const Color(0xFF060A14),
+                    child: CustomPaint(
+                      painter: _OyunRessami(
+                        tuglalar: _tuglalar,
+                        raketRect: Rect.fromLTWH(
+                            _raketX, _raketY, _raketGenislik, _raketYukseklik),
+                        topX: _topX,
+                        topY: _topY,
+                        topYaricap: _topYaricap,
+                        renkFunc: _tuglaRengi,
+                        oyunBitti: _oyunBitti,
+                        skor: _skor,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OyunRessami extends CustomPainter {
+  final List<Tugla> tuglalar;
+  final Rect raketRect;
+  final double topX;
+  final double topY;
+  final double topYaricap;
+  final Color Function(int) renkFunc;
+  final bool oyunBitti;
+  final int skor;
+
+  _OyunRessami({
+    required this.tuglalar,
+    required this.raketRect,
+    required this.topX,
+    required this.topY,
+    required this.topYaricap,
+    required this.renkFunc,
+    required this.oyunBitti,
+    required this.skor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+
+    for (final tugla in tuglalar) {
+      paint.color = renkFunc(tugla.hp);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(tugla.rect, const Radius.circular(5)),
+        paint,
+      );
+    }
+
+    paint.color = const Color(0xFF22C55E);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(raketRect, const Radius.circular(7)),
+      paint,
+    );
+
+    paint.color = Colors.white;
+    canvas.drawCircle(Offset(topX, topY), topYaricap, paint);
+
+    if (oyunBitti) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: 'OYUN BİTTİ\nSkor: $skor\nTekrar için Başlat\'a bas',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: size.width - 32);
+
+      tp.paint(
+        canvas,
+        Offset((size.width - tp.width) / 2, (size.height - tp.height) / 2),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _OyunRessami oldDelegate) => true;
+}

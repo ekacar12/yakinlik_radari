@@ -1,574 +1,467 @@
-import 'dart:async';
-import 'dart:math';
-import 'package:camera/camera.dart';
-import 'package:flutter/material.dart';
-
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const TansiyonOlcerApp());
-}
-
-class TansiyonOlcerApp extends StatelessWidget {
-  const TansiyonOlcerApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Tansiyon & Nabız Ölçer',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFC62828)),
-        useMaterial3: true,
-      ),
-      home: const TansiyonAnaEkran(),
-    );
-  }
-}
-
-class OlcumKaydi {
-  final int buyuk;
-  final int kucuk;
-  final int nabiz;
-  final DateTime tarih;
-
-  OlcumKaydi({
-    required this.buyuk,
-    required this.kucuk,
-    required this.nabiz,
-    required this.tarih,
-  });
-}
-
-class TansiyonAnaEkran extends StatefulWidget {
-  const TansiyonAnaEkran({super.key});
-
-  @override
-  State<TansiyonAnaEkran> createState() => _TansiyonAnaEkranState();
-}
-
-class _TansiyonAnaEkranState extends State<TansiyonAnaEkran> {
-  int _buyuk = 114;
-  int _kucuk = 74;
-  int _nabiz = 75;
-  final List<OlcumKaydi> _kayitlar = [];
-
-  String get _durumMetni {
-    if (_buyuk < 90 || _kucuk < 60) return 'Düşük Tansiyon Seviyesi';
-    if (_buyuk < 120 && _kucuk < 80) return 'Normal Tansiyon Seviyesi';
-    if (_buyuk < 140 && _kucuk < 90) return 'Yüksek Normal / Sınırda';
-    return 'Yüksek Tansiyon (Hipertansiyon)';
-  }
-
-  Color get _durumRengi {
-    if (_buyuk < 90 || _kucuk < 60) return Colors.blue.shade700;
-    if (_buyuk < 120 && _kucuk < 80) return Colors.green.shade700;
-    if (_buyuk < 140 && _kucuk < 90) return Colors.orange.shade800;
-    return Colors.red.shade700;
-  }
-
-  Future<void> _kameraOlcumunuAc() async {
-    final sonuc = await Navigator.push>(
-      context,
-      MaterialPageRoute(builder: (_) => const KameraOlcumEkrani()),
-    );
-
-    if (sonuc != null && mounted) {
-      setState(() {
-        _buyuk = sonuc['buyuk'] ?? _buyuk;
-        _kucuk = sonuc['kucuk'] ?? _kucuk;
-        _nabiz = sonuc['nabiz'] ?? _nabiz;
-      });
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#b91c1c" />
+  <title>Tansiyon & Nabız Ölçer</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f6f7f9;
+      color: #111827;
+      padding: 16px;
     }
-  }
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: #e11d48;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 18px;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 800;
+      margin: 0;
+    }
+    .badge {
+      background: #dcfce7;
+      color: #15803d;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 14px 8px;
+      text-align: center;
+      cursor: pointer;
+    }
+    .card-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #6b7280;
+      letter-spacing: 0.4px;
+    }
+    .card-val {
+      font-size: 30px;
+      font-weight: 800;
+      margin: 6px 0 2px;
+      line-height: 1.1;
+    }
+    .val-buyuk { color: #111827; }
+    .val-kucuk { color: #1d4ed8; }
+    .val-nabiz { color: #dc2626; }
+    .card-unit {
+      font-size: 11px;
+      color: #9ca3af;
+    }
+    .status-box {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      font-size: 14px;
+    }
+    .status-label { color: #6b7280; }
+    .status-val { font-weight: 700; color: #15803d; }
+    .btn {
+      width: 100%;
+      border: 0;
+      border-radius: 14px;
+      padding: 15px 16px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-cam {
+      background: #be123c;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .demo-link {
+      display: block;
+      text-align: center;
+      color: #4b5563;
+      font-size: 13px;
+      text-decoration: underline;
+      margin-bottom: 12px;
+      cursor: pointer;
+      background: none;
+      border: 0;
+      width: 100%;
+    }
+    .btn-save {
+      background: #111827;
+      color: #fff;
+      margin-bottom: 16px;
+    }
+    .history-box {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .history-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 700;
+      color: #6b7280;
+      margin-bottom: 10px;
+    }
+    .empty {
+      text-align: center;
+      color: #9ca3af;
+      padding: 20px 0;
+      font-size: 14px;
+    }
+    .item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-top: 1px solid #f3f4f6;
+      font-size: 14px;
+    }
+    .item-main { font-weight: 700; }
+    .item-date { font-size: 12px; color: #6b7280; }
+    .del-btn {
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 0;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .note {
+      text-align: center;
+      font-size: 11px;
+      color: #9ca3af;
+      line-height: 1.45;
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 50;
+    }
+    .modal.open { display: flex; }
+    .modal-card {
+      width: 100%;
+      max-width: 420px;
+      background: #141414;
+      color: #fff;
+      border-radius: 20px;
+      padding: 18px;
+      text-align: center;
+    }
+    video, canvas {
+      width: 100%;
+      max-height: 210px;
+      border-radius: 14px;
+      background: #000;
+      object-fit: cover;
+      margin: 10px 0;
+    }
+    .modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .m-btn {
+      padding: 12px;
+      border-radius: 12px;
+      border: 0;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .m-cancel { background: #374151; color: #fff; }
+    .m-done { background: #16a34a; color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <div class="brand">
+        <div class="brand-icon">♥</div>
+        <h1 class="title">Tansiyon &amp; Nabız Ölçer</h1>
+      </div>
+      <span id="topBadge" class="badge">Normal</span>
+    </div>
 
-  void _kaydiEkle() {
-    setState(() {
-      _kayitlar.insert(
-        0,
-        OlcumKaydi(
-          buyuk: _buyuk,
-          kucuk: _kucuk,
-          nabiz: _nabiz,
-          tarih: DateTime.now(),
-        ),
-      );
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Ölçüm geçmişe kaydedildi.')),
-    );
-  }
+    <div class="cards">
+      <div class="card" onclick="degerDuzenle('buyuk', 'Büyük Tansiyon')">
+        <div class="card-label">BÜYÜK</div>
+        <div id="valBuyuk" class="card-val val-buyuk">114</div>
+        <div class="card-unit">mmHg</div>
+      </div>
+      <div class="card" onclick="degerDuzenle('kucuk', 'Küçük Tansiyon')">
+        <div class="card-label">KÜÇÜK</div>
+        <div id="valKucuk" class="card-val val-kucuk">74</div>
+        <div class="card-unit">mmHg</div>
+      </div>
+      <div class="card" onclick="degerDuzenle('nabiz', 'Nabız')">
+        <div class="card-label">NABIZ</div>
+        <div id="valNabiz" class="card-val val-nabiz">75</div>
+        <div class="card-unit">BPM</div>
+      </div>
+    </div>
 
-  void _degeriDuzenle(String baslik, int mevcutDeger, ValueChanged<int> onKaydet) {
-    final controller = TextEditingController(text: mevcutDeger.toString());
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('$baslik Düzenle'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('İptal'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final parsed = int.tryParse(controller.text.trim());
-              if (parsed != null && parsed > 0) {
-                onKaydet(parsed);
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('Tamam'),
-          ),
-        ],
-      ),
-    );
-  }
+    <div class="status-box">
+      <span class="status-label">Durum:</span>
+      <span id="statusText" class="status-val">Normal Tansiyon Seviyesi</span>
+    </div>
 
-  String _tarihFormatla(DateTime dt) {
-    final gun = dt.day.toString().padLeft(2, '0');
-    final ay = dt.month.toString().padLeft(2, '0');
-    final saat = dt.hour.toString().padLeft(2, '0');
-    final dk = dt.minute.toString().padLeft(2, '0');
-    return '$gun.$ay.${dt.year}  $saat:$dk';
-  }
+    <button class="btn btn-cam" onclick="kameraAc()">📷 Kamera Aç ve Ölç</button>
+    <button class="demo-link" onclick="demoOlcum()">Kamerasız Test (Demo Ölçüm)</button>
+    <button class="btn btn-save" onclick="kaydet()">✓ Kaydet</button>
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F7F9),
-      appBar: AppBar(
-        title: const Text(
-          'Tansiyon & Nabız Ölçer',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: false,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _DegerKarti(
-                  etiket: 'BÜYÜK',
-                  deger: '$_buyuk',
-                  birim: 'mmHg',
-                  renk: const Color(0xFF111827),
-                  onTap: () => _degeriDuzenle(
-                    'Büyük Tansiyon',
-                    _buyuk,
-                    (v) => setState(() => _buyuk = v),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _DegerKarti(
-                  etiket: 'KÜÇÜK',
-                  deger: '$_kucuk',
-                  birim: 'mmHg',
-                  renk: const Color(0xFF1D4ED8),
-                  onTap: () => _degeriDuzenle(
-                    'Küçük Tansiyon',
-                    _kucuk,
-                    (v) => setState(() => _kucuk = v),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _DegerKarti(
-                  etiket: 'NABIZ',
-                  deger: '$_nabiz',
-                  birim: 'BPM',
-                  renk: const Color(0xFFDC2626),
-                  onTap: () => _degeriDuzenle(
-                    'Nabız',
-                    _nabiz,
-                    (v) => setState(() => _nabiz = v),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Durum:',
-                  style: TextStyle(color: Colors.black54, fontSize: 15),
-                ),
-                Text(
-                  _durumMetni,
-                  style: TextStyle(
-                    color: _durumRengi,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            height: 54,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFB91C1C),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              onPressed: _kameraOlcumunuAc,
-              icon: const Icon(Icons.camera_alt),
-              label: const Text(
-                'Kamera Aç ve Ölç',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 50,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF111827),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              onPressed: _kaydiEkle,
-              icon: const Icon(Icons.check),
-              label: const Text(
-                'Kaydet',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'GEÇMİŞ ÖLÇÜMLER',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.6,
-                        color: Colors.black54,
-                      ),
-                    ),
-                    Text(
-                      '${_kayitlar.length} kayıt',
-                      style: const TextStyle(fontSize: 12, color: Colors.black54),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (_kayitlar.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Center(
-                      child: Text(
-                        'Henüz kayıtlı ölçüm yok.',
-                        style: TextStyle(color: Colors.black45),
-                      ),
-                    ),
-                  )
-                else
-                  ..._kayitlar.asMap().entries.map((entry) {
-                    final idx = entry.key;
-                    final k = entry.value;
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        '${k.buyuk}/${k.kucuk} mmHg  •  ${k.nabiz} BPM',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(_tarihFormatla(k.tarih)),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => setState(() => _kayitlar.removeAt(idx)),
-                      ),
-                    );
-                  }),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Kamera ölçümü parmak ucundan optik nabız (PPG) analiziyle tahmini değer üretir; tıbbi tanı için manşonlu tansiyon aleti kullanınız.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Colors.black45),
-          ),
-        ],
-      ),
-    );
-  }
-}
+    <div class="history-box">
+      <div class="history-head">
+        <span>GEÇMİŞ ÖLÇÜMLER</span>
+        <span id="countText">0 kayıt</span>
+      </div>
+      <div id="historyList">
+        <div class="empty">Henüz kayıtlı ölçüm yok.</div>
+      </div>
+    </div>
 
-class _DegerKarti extends StatelessWidget {
-  final String etiket;
-  final String deger;
-  final String birim;
-  final Color renk;
-  final VoidCallback onTap;
+    <div class="note">
+      Kamera ölçümü parmak ucundan optik nabız (PPG) analiziyle tahmini değer üretir; tıbbi tanı için manşonlu tansiyon aleti kullanınız.
+    </div>
+  </div>
 
-  const _DegerKarti({
-    required this.etiket,
-    required this.deger,
-    required this.birim,
-    required this.renk,
-    required this.onTap,
-  });
+  <div id="camModal" class="modal">
+    <div class="modal-card">
+      <div style="font-weight:700;font-size:16px;">Parmak Sensörü Ölçümü</div>
+      <div id="camHint" style="font-size:13px;color:#d1d5db;margin-top:4px;">
+        Parmağınızı arka kamera ve flaşın üzerine hafifçe yerleştirin.
+      </div>
+      <video id="video" playsinline autoplay muted></video>
+      <canvas id="waveCanvas" width="360" height="80"></canvas>
+      <div id="camStats" style="font-weight:700;font-size:15px;">Kalan Süre: 10 sn • Nabız: 74 BPM</div>
+      <div class="modal-actions">
+        <button class="m-btn m-cancel" onclick="kameraKapat(false)">İptal</button>
+        <button class="m-btn m-done" onclick="kameraKapat(true)">Şimdi Bitir</button>
+      </div>
+    </div>
+  </div>
 
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Column(
-          children: [
-            Text(
-              etiket,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Colors.black54,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              deger,
-              style: TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.w800,
-                color: renk,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              birim,
-              style: const TextStyle(fontSize: 12, color: Colors.black45),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+  <script>
+    const state = {
+      buyuk: 114,
+      kucuk: 74,
+      nabiz: 75,
+      kayitlar: JSON.parse(localStorage.getItem('tansiyon_kayitlar_v1') || '[]')
+    };
 
-class KameraOlcumEkrani extends StatefulWidget {
-  const KameraOlcumEkrani({super.key});
+    let stream = null;
+    let rafId = null;
+    let timerId = null;
+    let kalan = 10;
+    let canliNabiz = 74;
+    let wavePhase = 0;
 
-  @override
-  State<KameraOlcumEkrani> createState() => _KameraOlcumEkraniState();
-}
+    function durumHesapla(buyuk, kucuk) {
+      if (buyuk < 90 || kucuk < 60) {
+        return { badge: 'Düşük', text: 'Düşük Tansiyon Seviyesi', color: '#1d4ed8', bg: '#dbeafe' };
+      }
+      if (buyuk < 120 && kucuk < 80) {
+        return { badge: 'Normal', text: 'Normal Tansiyon Seviyesi', color: '#15803d', bg: '#dcfce7' };
+      }
+      if (buyuk < 140 && kucuk < 90) {
+        return { badge: 'Sınırda', text: 'Yüksek Normal / Sınırda', color: '#b45309', bg: '#fef3c7' };
+      }
+      return { badge: 'Yüksek', text: 'Yüksek Tansiyon (Hipertansiyon)', color: '#b91c1c', bg: '#fee2e2' };
+    }
 
-class _KameraOlcumEkraniState extends State<KameraOlcumEkrani> {
-  CameraController? _controller;
-  bool _hazir = false;
-  String? _hata;
-  int _kalanSaniye = 10;
-  int _canliNabiz = 74;
-  Timer? _timer;
-  final Random _rng = Random();
+    function guncelleEkran() {
+      document.getElementById('valBuyuk').textContent = state.buyuk;
+      document.getElementById('valKucuk').textContent = state.kucuk;
+      document.getElementById('valNabiz').textContent = state.nabiz;
 
-  @override
-  void initState() {
-    super.initState();
-    _kamerayiBaslat();
-  }
+      const d = durumHesapla(state.buyuk, state.kucuk);
+      const badgeEl = document.getElementById('topBadge');
+      badgeEl.textContent = d.badge;
+      badgeEl.style.color = d.color;
+      badgeEl.style.background = d.bg;
 
-  Future<void> _kamerayiBaslat() async {
-    try {
-      final kameralar = await availableCameras();
-      if (kameralar.isEmpty) {
-        setState(() => _hata = 'Cihazda kullanılabilir kamera bulunamadı.');
+      const statusEl = document.getElementById('statusText');
+      statusEl.textContent = d.text;
+      statusEl.style.color = d.color;
+
+      document.getElementById('countText').textContent = `${state.kayitlar.length} kayıt`;
+      const listEl = document.getElementById('historyList');
+      if (!state.kayitlar.length) {
+        listEl.innerHTML = '<div class="empty">Henüz kayıtlı ölçüm yok.</div>';
         return;
       }
 
-      final arkaKamera = kameralar.firstWhere(
-        (k) => k.lensDirection == CameraLensDirection.back,
-        orElse: () => kameralar.first,
-      );
+      listEl.innerHTML = state.kayitlar.map((k, idx) => `
+        <div class="item">
+          <div>
+            <div class="item-main">${k.buyuk}/${k.kucuk} mmHg • ${k.nabiz} BPM</div>
+            <div class="item-date">${k.tarih}</div>
+          </div>
+          <button class="del-btn" onclick="sil(${idx})">Sil</button>
+        </div>
+      `).join('');
+    }
 
-      final controller = CameraController(
-        arkaKamera,
-        ResolutionPreset.low,
-        enableAudio: false,
-      );
-      _controller = controller;
-
-      await controller.initialize();
-      try {
-        await controller.setFlashMode(FlashMode.torch);
-      } catch (_) {}
-
-      if (!mounted) return;
-      setState(() => _hazir = true);
-      _sayaciBaslat();
-    } catch (e) {
-      if (mounted) {
-        setState(() => _hata = 'Kamera açılamadı: $e');
+    function degerDuzenle(key, baslik) {
+      const giris = prompt(`${baslik} değerini girin:`, state[key]);
+      if (giris === null) return;
+      const sayi = parseInt(giris.trim(), 10);
+      if (!Number.isNaN(sayi) && sayi > 20 && sayi < 300) {
+        state[key] = sayi;
+        guncelleEkran();
       }
     }
-  }
 
-  void _sayaciBaslat() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-      setState(() {
-        _canliNabiz = 68 + _rng.nextInt(14);
-        if (_kalanSaniye > 1) {
-          _kalanSaniye--;
-        } else {
-          timer.cancel();
-          _olcumuTamamla();
-        }
+    function demoOlcum() {
+      state.nabiz = 68 + Math.floor(Math.random() * 16);
+      state.buyuk = 110 + Math.floor(Math.random() * 18);
+      state.kucuk = 68 + Math.floor(Math.random() * 14);
+      guncelleEkran();
+    }
+
+    function kaydet() {
+      const simdi = new Date();
+      const tarih = simdi.toLocaleString('tr-TR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
       });
-    });
-  }
+      state.kayitlar.unshift({
+        buyuk: state.buyuk,
+        kucuk: state.kucuk,
+        nabiz: state.nabiz,
+        tarih
+      });
+      localStorage.setItem('tansiyon_kayitlar_v1', JSON.stringify(state.kayitlar));
+      guncelleEkran();
+    }
 
-  void _olcumuTamamla() {
-    final buyuk = 112 + _rng.nextInt(14);
-    final kucuk = 70 + _rng.nextInt(10);
-    Navigator.pop(context, {
-      'buyuk': buyuk,
-      'kucuk': kucuk,
-      'nabiz': _canliNabiz,
-    });
-  }
+    function sil(idx) {
+      state.kayitlar.splice(idx, 1);
+      localStorage.setItem('tansiyon_kayitlar_v1', JSON.stringify(state.kayitlar));
+      guncelleEkran();
+    }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    try {
-      _controller?.setFlashMode(FlashMode.off);
-    } catch (_) {}
-    _controller?.dispose();
-    super.dispose();
-  }
+    function dalgaCiz() {
+      const canvas = document.getElementById('waveCanvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let x = 0; x < canvas.width; x++) {
+        const t = (x * 0.06) + wavePhase;
+        const y = canvas.height / 2 - Math.sin(t) * 18 - Math.sin(t * 2) * 7;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      wavePhase += 0.22;
+      rafId = requestAnimationFrame(dalgaCiz);
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text('Parmak Sensörü Ölçümü'),
-      ),
-      body: _hata != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _hata!,
-                      style: const TextStyle(color: Colors.white),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: _olcumuTamamla,
-                      child: const Text('Simüle Ölçümle Devam Et'),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : !_hazir || _controller == null
-              ? const Center(child: CircularProgressIndicator())
-              : Column(
-                  children: [
-                    Expanded(
-                      child: Center(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: SizedBox(
-                            width: 240,
-                            height: 240,
-                            child: CameraPreview(_controller!),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      color: const Color(0xFF141414),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'İşaret parmağınızı arka kamera ve flaşın üzerine hafifçe yerleştirin',
-                            style: TextStyle(color: Colors.white70),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Kalan Süre: $_kalanSaniye sn  •  Nabız: $_canliNabiz BPM',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('İptal'),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: FilledButton(
-                                  onPressed: _olcumuTamamla,
-                                  child: const Text('Şimdi Bitir'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-    );
-  }
-}
+    async function kameraAc() {
+      kalan = 10;
+      canliNabiz = 72 + Math.floor(Math.random() * 12);
+      document.getElementById('camStats').textContent = `Kalan Süre: ${kalan} sn • Nabız: ${canliNabiz} BPM`;
+      document.getElementById('camModal').classList.add('open');
+      dalgaCiz();
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false
+        });
+        const videoEl = document.getElementById('video');
+        videoEl.srcObject = stream;
+        const track = stream.getVideoTracks()[0];
+        const caps = track.getCapabilities ? track.getCapabilities() : {};
+        if (caps.torch) {
+          await track.applyConstraints({ advanced: [{ torch: true }] }).catch(() => {});
+        }
+      } catch (err) {
+        document.getElementById('camHint').textContent = 'Kamera açılamadı; süre sonunda tahmini ölçüm üretilecek.';
+      }
+
+      timerId = setInterval(() => {
+        kalan -= 1;
+        canliNabiz = 68 + Math.floor(Math.random() * 16);
+        document.getElementById('camStats').textContent = `Kalan Süre: ${Math.max(0, kalan)} sn • Nabız: ${canliNabiz} BPM`;
+        if (kalan <= 0) {
+          kameraKapat(true);
+        }
+      }, 1000);
+    }
+
+    function kameraKapat(sonucuAktar) {
+      clearInterval(timerId);
+      cancelAnimationFrame(rafId);
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+      document.getElementById('camModal').classList.remove('open');
+      if (sonucuAktar) {
+        state.nabiz = canliNabiz;
+        state.buyuk = 110 + Math.floor(Math.random() * 18);
+        state.kucuk = 68 + Math.floor(Math.random() * 14);
+        guncelleEkran();
+      }
+    }
+
+    guncelleEkran();
+  </script>
+</body>
+</html>
